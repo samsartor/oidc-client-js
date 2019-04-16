@@ -10,6 +10,7 @@ import { SignoutRequest } from './SignoutRequest.js';
 import { SignoutResponse } from './SignoutResponse.js';
 import { SigninState } from './SigninState.js';
 import { State } from './State.js';
+import { UrlUtility } from './UrlUtility.js';
 
 export class OidcClient {
     constructor(settings = {}) {
@@ -29,6 +30,11 @@ export class OidcClient {
     }
     get _metadataService() {
         return this.settings.metadataService;
+    }
+    get _signinDelimiter() {
+        let useQuery = this._settings.response_mode === "query" || 
+        (!this._settings.response_mode && SigninRequest.isCode(this._settings.response_type));
+        return useQuery ? "?" : "#";
     }
 
     get settings() {
@@ -97,11 +103,7 @@ export class OidcClient {
     processSigninResponse(url, stateStore) {
         Log.debug("OidcClient.processSigninResponse");
 
-        let useQuery = this._settings.response_mode === "query" || 
-            (!this._settings.response_mode && SigninRequest.isCode(this._settings.response_type));
-        let delimiter = useQuery ? "?" : "#";
-
-        var response = new SigninResponse(url, delimiter);
+        var response = new SigninResponse(url, this._signinDelimiter);
 
         if (!response.state) {
             Log.error("OidcClient.processSigninResponse: No state in response");
@@ -188,6 +190,35 @@ export class OidcClient {
 
             Log.debug("OidcClient.processSignoutResponse: Received state from storage; validating response");
             return this._validator.validateSignoutResponse(state, response);
+        });
+    }
+
+    getCallbackState(url, stateStore) {
+        Log.debug("OidcClient.getCallbackState");
+
+        var stateKey = undefined;
+        if (this._signinDelimiter === '#') {
+            stateKey = UrlUtility.parseUrlFragment(url, "#").state;
+        }
+        stateKey = stateKey || UrlUtility.parseUrlFragment(url, "?").state;
+
+        if (!stateKey) {
+            Log.error("OidcClient.getCallbackState: No state in response");
+            return Promise.reject(new Error("No state in response"));
+        }
+
+        stateStore = stateStore || this._stateStore;
+
+        return stateStore.get(stateKey).then(storedStateString => {
+            if (!storedStateString) {
+                Log.error("OidcClient.getCallbackState: No matching state found in storage");
+                throw new Error("No matching state found in storage");
+            }
+
+            let state = State.fromStorageString(storedStateString);
+
+            Log.debug("OidcClient.getCallbackState: Received state from storage");
+            return state;
         });
     }
 

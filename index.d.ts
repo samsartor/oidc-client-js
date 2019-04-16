@@ -112,6 +112,7 @@ export class OidcClient {
   createSignoutRequest(args?: any): Promise<SignoutRequest>;
   processSignoutResponse(url?: string, stateStore?: StateStore): Promise<SignoutResponse>;
 
+  getCallbackState(url?: string, stateStore?: StateStore): Promise<any>;
   clearStaleState(stateStore: StateStore): Promise<any>;
 
   readonly metadataService: MetadataService;

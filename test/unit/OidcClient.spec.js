@@ -458,6 +458,42 @@ describe("OidcClient", function () {
 
     });
 
+    describe("getCallbackState", function () {
+
+        it("should return a promise", function () {
+            var p = subject.getCallbackState("state=state");
+            p.should.be.instanceof(Promise);
+            p.catch(e=>{});
+        });
+
+        it("should fail if no state on response", function (done) {
+            subject.getCallbackState("").then(null, err => {
+                err.message.should.contain('response');
+                done();
+            });
+        });
+
+        it("should fail if storage fails", function (done) {
+            stubStore.error = "fail";
+            subject.getCallbackState("state=state").then(null, err => {
+                err.message.should.contain('fail');
+                done();
+            });
+        });
+
+        it("should deserialize stored state", function (done) {
+
+            stubStore.item = new State({ id: '1', data: 'bar' }).toStorageString();
+
+            subject.getCallbackState("state=1").then(state => {
+                state.id.should.equal('1');
+                state.data.should.equal('bar');
+                done();
+            });
+        });
+
+    });
+
     describe("clearStaleState", function () {
 
         it("should return a promise", function () {
